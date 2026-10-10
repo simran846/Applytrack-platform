@@ -11,6 +11,16 @@ jobs:
     name: Backend Tests & Build
     runs-on: ubuntu-latest
 
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: rootpassword
+          MYSQL_DATABASE: applytrack_test
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping -h 127.0.0.1 -u root -prootpassword" --health-interval=10s --health-timeout=5s --health-retries=10
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -19,19 +29,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-
-      - name: Setup and Start MySQL Database
-        run: |
-          sudo systemctl start mysql.service
-          sudo mysql -e "CREATE DATABASE IF NOT EXISTS applytrack_test;"
-          sudo mysql -e "CREATE USER IF NOT EXISTS 'root'@'127.0.0.1' IDENTIFIED BY 'rootpassword';"
-          sudo mysql -e "CREATE USER IF NOT EXISTS 'root'@'%' IDENTIFIED BY 'rootpassword';"
-          sudo mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED BY 'rootpassword';"
-          sudo mysql -e "GRANT ALL PRIVILEGES ON *.* TO 'root'@'127.0.0.1' WITH GRANT OPTION;"
-          sudo mysql -e "GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;"
-          sudo mysql -e "GRANT ALL PRIVILEGES ON *.* TO 'root'@'localhost' WITH GRANT OPTION;"
-          sudo mysql -e "FLUSH PRIVILEGES;"
-          mysql -h 127.0.0.1 -u root -prootpassword -e "SHOW DATABASES;"
 
       - name: Install Backend Dependencies
         working-directory: ./backend
