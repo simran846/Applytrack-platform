@@ -1,0 +1,88 @@
+version: '3.8'
+
+services:
+  # MySQL Database Service
+  mysql:
+    image: mysql:8.0
+    container_name: applytrack-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: applytrack
+    ports:
+      - '3306:3306'
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost', '-u', 'root', '-prootpassword']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - applytrack-net
+
+  # Redis Service for BullMQ Job Queue
+  redis:
+    image: redis:7-alpine
+    container_name: applytrack-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    networks:
+      - applytrack-net
+
+  # Backend REST API Service
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: applytrack-backend
+    restart: unless-stopped
+    environment:
+      PORT: 5000
+      NODE_ENV: production
+      DATABASE_URL: mysql://root:rootpassword@mysql:3306/applytrack
+      JWT_SECRET: applytrack_super_secret_jwt_key_2026_sde_portfolio
+      JWT_EXPIRES_IN: 7d
+      CLIENT_URL: http://localhost:3000
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    ports:
+      - '5000:5000'
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - applytrack-net
+
+  # Next.js Frontend Service
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: applytrack-frontend
+    restart: unless-stopped
+    environment:
+      PORT: 3000
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: http://localhost:5000/api/v1
+    ports:
+      - '3000:3000'
+    depends_on:
+      - backend
+    networks:
+      - applytrack-net
+
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  applytrack-net:
+    driver: bridge
