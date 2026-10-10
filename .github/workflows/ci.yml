@@ -8,7 +8,7 @@ on:
 
 jobs:
   backend-test:
-    name: Backend Lint, Build & Tests
+    name: Backend Tests & Build
     runs-on: ubuntu-latest
 
     services:
@@ -19,7 +19,7 @@ jobs:
           MYSQL_DATABASE: applytrack_test
         ports:
           - 3306:3306
-        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+        options: --health-cmd="mysqladmin ping -h 127.0.0.1 -u root -prootpassword" --health-interval=10s --health-timeout=5s --health-retries=10
 
       redis:
         image: redis:7-alpine
@@ -41,11 +41,17 @@ jobs:
         working-directory: ./backend
         run: npm ci
 
+      - name: Generate Prisma Client
+        working-directory: ./backend
+        env:
+          DATABASE_URL: mysql://root:rootpassword@127.0.0.1:3306/applytrack_test
+        run: npx prisma generate
+
       - name: Push Prisma Schema to Test DB
         working-directory: ./backend
         env:
           DATABASE_URL: mysql://root:rootpassword@127.0.0.1:3306/applytrack_test
-        run: npx prisma db push
+        run: npx prisma db push --skip-generate
 
       - name: Run Backend Tests
         working-directory: ./backend
@@ -53,6 +59,7 @@ jobs:
           DATABASE_URL: mysql://root:rootpassword@127.0.0.1:3306/applytrack_test
           TEST_DATABASE_URL: mysql://root:rootpassword@127.0.0.1:3306/applytrack_test
           JWT_SECRET: test_jwt_secret_key_12345
+          NODE_ENV: test
         run: npm test
 
       - name: Build TypeScript Backend
@@ -60,7 +67,7 @@ jobs:
         run: npm run build
 
   frontend-build:
-    name: Frontend Lint & Build
+    name: Frontend Build
     runs-on: ubuntu-latest
 
     steps:
@@ -82,4 +89,5 @@ jobs:
         working-directory: ./frontend
         env:
           NEXT_PUBLIC_API_URL: http://localhost:5000/api/v1
+          NEXT_TELEMETRY_DISABLED: 1
         run: npm run build
