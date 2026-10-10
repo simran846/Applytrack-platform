@@ -11,15 +11,6 @@ jobs:
     name: Backend Tests & Build
     runs-on: ubuntu-latest
 
-    services:
-      mysql:
-        image: mysql:8.0
-        env:
-          MYSQL_ROOT_PASSWORD: rootpassword
-          MYSQL_DATABASE: applytrack_test
-        ports:
-          - 3306:3306
-
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -29,17 +20,11 @@ jobs:
         with:
           node-version: 20
 
-      - name: Wait for MySQL Server
+      - name: Start Native MySQL on Ubuntu Runner
         run: |
-          sudo apt-get update && sudo apt-get install -y default-mysql-client
-          for i in {1..30}; do
-            if mysqladmin ping -h 127.0.0.1 -u root -prootpassword --silent; then
-              echo "✅ MySQL is ready!"
-              break
-            fi
-            echo "Waiting for MySQL database to initialize ($i/30)..."
-            sleep 2
-          done
+          sudo systemctl start mysql.service
+          sudo mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'rootpassword'; CREATE DATABASE IF NOT EXISTS applytrack_test; FLUSH PRIVILEGES;"
+          mysql -u root -prootpassword -e "SHOW DATABASES;"
 
       - name: Install Backend Dependencies
         working-directory: ./backend
